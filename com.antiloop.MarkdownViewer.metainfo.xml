@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.antiloop.MarkdownViewer</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Antiloop Markdown Viewer</name>
+  <summary>Native GNOME Markdown Viewer with sidebars and outline</summary>
+  <description>
+    <p>
+      A premium, offline-first Markdown viewer built for GNOME using GTK4 and Libadwaita.
+      Features dual sidebars for file browsing and outline navigation, as well as Mermaid diagram rendering.
+    </p>
+  </description>
+  <launchable type="desktop-id">com.antiloop.MarkdownViewer.desktop</launchable>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Main Window</caption>
+      <image>https://raw.githubusercontent.com/dein-username/linux-md-viewer/main/screenshot.png</image>
+    </screenshot>
+  </screenshots>
+  <url type="homepage">https://github.com/dein-username/linux-md-viewer</url>
+  <developer_name>Antiloop GmbH</developer_name>
+</component>

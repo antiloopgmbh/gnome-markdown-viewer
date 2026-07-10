@@ -10,6 +10,7 @@ class MockWidget:
     def set_visible(self, val): self._visible = val
     def get_visible(self): return getattr(self, '_visible', True)
     def add_controller(self, controller): pass
+    def add_action(self, action): pass
 
 class MockGObject:
     class Object(MockWidget):
@@ -134,6 +135,9 @@ class MockAdw:
             return cls._instance
     class Application:
         def __init__(self, *args, **kwargs): pass
+        def set_accels_for_action(self, action, accels): pass
+        def add_action(self, action): pass
+        def do_startup(self): pass
 
 class MockWebKit:
     class WebView(MockWidget):
@@ -154,6 +158,11 @@ class MockWebKit:
 class MockGio:
     AppInfo = MagicMock()
     ListStore = MagicMock()
+    class SimpleAction:
+        @classmethod
+        def new(cls, name, parameter_type):
+            s = MagicMock()
+            return s
     class ApplicationFlags:
         HANDLES_OPEN = 1
     class File:

@@ -130,6 +130,15 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.style_manager = Adw.StyleManager.get_default()
         self.style_manager.connect("notify::dark", self.on_theme_changed)
 
+        # Actions for keyboard shortcuts (win.open, win.close)
+        action_open = Gio.SimpleAction.new("open", None)
+        action_open.connect("activate", lambda a, p: self.show_file_chooser())
+        self.add_action(action_open)
+
+        action_close = Gio.SimpleAction.new("close", None)
+        action_close.connect("activate", lambda a, p: self.close())
+        self.add_action(action_close)
+
         # Show placeholder
         self.show_placeholder()
 
@@ -459,6 +468,17 @@ class MarkdownViewerApp(Adw.Application):
             application_id="com.antiloop.MarkdownViewer",
             flags=Gio.ApplicationFlags.HANDLES_OPEN
         )
+
+    def do_startup(self):
+        Adw.Application.do_startup(self)
+
+        action_quit = Gio.SimpleAction.new("quit", None)
+        action_quit.connect("activate", lambda a, p: self.quit())
+        self.add_action(action_quit)
+
+        self.set_accels_for_action("app.quit", ["<Control>q"])
+        self.set_accels_for_action("win.open", ["<Control>o"])
+        self.set_accels_for_action("win.close", ["<Control>w"])
 
     def do_activate(self):
         win = self.get_active_window()

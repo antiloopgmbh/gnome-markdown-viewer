@@ -19,9 +19,8 @@ It provides a native GTK look and feel, fits perfectly into your GNOME environme
 
 ---
 
-## Installation & Running
+## Installation & Running (Flatpak)
 
-### Option A: Flatpak (Recommended)
 Building and running the application in a secure sandbox.
 
 1. **Install Flatpak-Builder and SDK**:
@@ -39,23 +38,6 @@ Building and running the application in a secure sandbox.
    flatpak run com.antiloop.MarkdownViewer
    ```
 
-### Option B: Local Host Script Execution
-Running the script directly on your host machine.
-
-1. **Install Dependencies (Fedora)**:
-   ```bash
-   sudo dnf install -y python3-gobject gtk4 libadwaita python3-webkit2git
-   ```
-2. **Run the Installer**:
-   Installs the application menu shortcut and icon:
-   ```bash
-   ./install.sh
-   ```
-3. **Execute directly**:
-   ```bash
-   python3 src/md_viewer.py
-   ```
-
 ---
 
 ## Keyboard Shortcuts
@@ -65,17 +47,6 @@ Running the script directly on your host machine.
 | **`Ctrl + O`** | Open a new Markdown file |
 | **`Ctrl + W`** | Close the current window |
 | **`Ctrl + Q`** | Quit the application |
-
----
-
-## Developer Guide
-
-### Running Unit Tests
-You can execute the pure Python mock unit test suite locally:
-
-```bash
-python3 test_md_viewer.py -v
-```
 
 ---
 

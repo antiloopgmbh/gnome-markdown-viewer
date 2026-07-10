@@ -191,9 +191,10 @@ class MockGiRepository:
 sys.modules['gi.repository'] = MockGiRepository
 
 # Import the code to test (it will now use the mock classes)
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
 from md_viewer import MarkdownViewerWindow
 import unittest
-import os
 import tempfile
 
 class TestMarkdownViewerPureLogic(unittest.TestCase):

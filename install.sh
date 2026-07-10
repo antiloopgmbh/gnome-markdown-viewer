@@ -19,7 +19,7 @@ cat <<EOF > "$APP_DIR/com.antiloop.MarkdownViewer.desktop"
 [Desktop Entry]
 Name=Antiloop Markdown Viewer
 Comment=Native Markdown viewer for GNOME
-Exec=/usr/bin/python3 $SCRIPT_DIR/md_viewer.py %U
+Exec=/usr/bin/python3 $SCRIPT_DIR/src/md_viewer.py %U
 Icon=com.antiloop.MarkdownViewer
 Terminal=false
 Type=Application
@@ -50,6 +50,6 @@ update-desktop-database "$APP_DIR" || true
 gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" || true
 
 # Make execution script executable
-chmod +x "$SCRIPT_DIR/md_viewer.py"
+chmod +x "$SCRIPT_DIR/src/md_viewer.py"
 
 echo "Installation complete. You can now launch Antiloop Markdown Viewer from your GNOME Applications launcher."

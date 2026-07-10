@@ -16,10 +16,10 @@ modules:
     buildsystem: simple
     build-commands:
       - install -d /app/bin
-      - install -m 755 md_viewer.py /app/bin/md_viewer.py
+      - install -m 755 src/md_viewer.py /app/bin/md_viewer.py
       
       - install -d /app/bin/assets
-      - install -m 644 assets/* /app/bin/assets/
+      - install -m 644 src/assets/* /app/bin/assets/
 
       - install -d /app/share/applications
       - install -m 644 com.antiloop.MarkdownViewer.desktop /app/share/applications/com.antiloop.MarkdownViewer.desktop

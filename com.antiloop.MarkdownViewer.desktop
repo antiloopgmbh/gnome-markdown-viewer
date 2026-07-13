@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Antiloop Markdown Viewer
 Comment=Native Markdown viewer for GNOME
-Exec=md_viewer.py %U
+Exec=main.py %U
 Icon=com.antiloop.MarkdownViewer
 Terminal=false
 Type=Application

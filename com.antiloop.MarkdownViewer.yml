@@ -2,7 +2,7 @@ id: com.antiloop.MarkdownViewer
 runtime: org.gnome.Platform
 runtime-version: '47'
 sdk: org.gnome.Sdk
-command: md_viewer.py
+command: main.py
 
 finish-args:
   - --socket=wayland
@@ -10,14 +10,23 @@ finish-args:
   - --device=dri
   - --share=ipc
   - --filesystem=host:ro
+  - --env=GTK_USE_PORTAL=0
 
 modules:
   - name: antiloop-md-viewer
     buildsystem: simple
     build-commands:
       - install -d /app/bin
-      - install -m 755 src/md_viewer.py /app/bin/md_viewer.py
+      - install -m 755 src/main.py /app/bin/main.py
+      - install -m 644 src/app.py /app/bin/app.py
+      - install -m 644 src/window.py /app/bin/window.py
       
+      - install -d /app/bin/core
+      - install -m 644 src/core/*.py /app/bin/core/
+      
+      - install -d /app/bin/widgets
+      - install -m 644 src/widgets/*.py /app/bin/widgets/
+
       - install -d /app/bin/assets
       - install -m 644 src/assets/* /app/bin/assets/
 

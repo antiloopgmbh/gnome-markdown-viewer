@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="app-local://{{ASSETS_DIR}}/github-markdown.min.css">
+  <link rel="stylesheet" href="app-local://{{ASSETS_DIR}}/highlight-github.min.css" id="highlight-light" {{LIGHT_DISABLED}}>
+  <link rel="stylesheet" href="app-local://{{ASSETS_DIR}}/highlight-github-dark.min.css" id="highlight-dark" {{DARK_DISABLED}}>
+  <script src="app-local://{{ASSETS_DIR}}/marked.min.js"></script>
+  <script src="app-local://{{ASSETS_DIR}}/highlight.min.js"></script>
+  <script src="app-local://{{ASSETS_DIR}}/mermaid.min.js"></script>
+  <style>
+    body {
+      box-sizing: border-box;
+      min-width: 200px;
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 45px;
+      background-color: var(--color-canvas-default);
+    }
+    @media (max-width: 767px) {
+      body { padding: 15px; }
+    }
+    .mermaid {
+      background: transparent;
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+    }
+    .markdown-body table th {
+      background-color: var(--color-canvas-subtle) !important;
+      border-bottom: 2px solid var(--color-border-default) !important;
+    }
+  </style>
+</head>
+<body class="markdown-body" data-color-mode="{{THEME}}" data-light-theme="light" data-dark-theme="dark">
+  <div id="content"></div>
+  <div id="error-console" style="color: #a61c1c; background: #fdf2f2; padding: 20px; border: 1px solid #f8b4b4; border-radius: 6px; display: none; font-family: monospace; white-space: pre-wrap; margin: 20px; font-size: 14px;"></div>
+  <script>
+    try {
+      marked.setOptions({
+        gfm: true,
+        breaks: true,
+        highlight: function(code, lang) {
+          const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+          return hljs.highlight(code, { language }).value;
+        }
+      });
+
+      const markdownText = {{MARKDOWN_JSON}};
+      const contentDiv = document.getElementById('content');
+      contentDiv.innerHTML = marked.parse(markdownText);
+
+      // Extract headings
+      const headers = Array.from(contentDiv.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+      const outline = headers.map((h, index) => {
+        if (!h.id) {
+          h.id = 'heading-' + index;
+        }
+        return {
+          level: parseInt(h.tagName.substring(1)),
+          text: h.textContent,
+          id: h.id
+        };
+      });
+      
+      // Post outline
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.outline) {
+        window.webkit.messageHandlers.outline.postMessage(JSON.stringify(outline));
+      }
+
+      // Preprocess and render Mermaid diagrams
+      const mermaidCodes = Array.from(contentDiv.querySelectorAll('pre code.language-mermaid'));
+      if (mermaidCodes.length > 0) {
+        mermaidCodes.forEach((codeBlock, idx) => {
+          const pre = codeBlock.parentNode;
+          const div = document.createElement('div');
+          div.className = 'mermaid';
+          div.id = 'mermaid-' + idx;
+          div.textContent = codeBlock.textContent;
+          pre.parentNode.replaceChild(div, pre);
+        });
+
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: '{{MERMAID_THEME}}',
+          securityLevel: 'loose'
+        });
+        mermaid.run();
+      }
+    } catch (err) {
+      const errDiv = document.getElementById('error-console');
+      errDiv.style.display = 'block';
+      errDiv.textContent = 'JavaScript Error:\n' + err.message + '\n\nStack:\n' + err.stack;
+    }
+  </script>
+</body>
+</html>

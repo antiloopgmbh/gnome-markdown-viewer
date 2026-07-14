@@ -9,6 +9,8 @@ class FileSidebar(Gtk.Box):
     def __init__(self):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.set_size_request(240, -1)
+        self.current_dir = None
+        self.current_active_file = None
 
         # Header Box
         header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -16,6 +18,13 @@ class FileSidebar(Gtk.Box):
         header_box.set_margin_end(12)
         header_box.set_margin_top(12)
         header_box.set_margin_bottom(8)
+
+        # Up Button (Go one directory up)
+        self.btn_up = Gtk.Button(icon_name="go-up-symbolic")
+        self.btn_up.set_has_frame(False)
+        self.btn_up.set_tooltip_text("Go up one directory")
+        self.btn_up.connect("clicked", self.on_btn_up_clicked)
+        header_box.append(self.btn_up)
 
         # Folder Icon
         icon = Gtk.Image.new_from_icon_name("folder-symbolic")
@@ -44,43 +53,111 @@ class FileSidebar(Gtk.Box):
         scroll.set_child(self.list_box)
 
     def on_row_activated(self, list_box, row):
-        if row and hasattr(row, 'filepath'):
-            self.emit('file-activated', row.filepath)
+        if row and hasattr(row, 'path'):
+            if row.is_folder:
+                # Navigate inside the folder
+                self.load_directory(row.path, current_filepath=self.current_active_file)
+            else:
+                # Open the markdown file
+                self.emit('file-activated', row.path)
 
-    def load_directory(self, current_filepath):
-        # Clear previous list
+    def on_btn_up_clicked(self, btn):
+        if self.current_dir and self.current_dir != "/":
+            parent_dir = os.path.dirname(self.current_dir)
+            self.load_directory(parent_dir, current_filepath=self.current_active_file)
+
+    def load_directory(self, path, current_filepath=None):
+        # Determine path and file
+        if os.path.isfile(path):
+            dir_path = os.path.dirname(os.path.abspath(path))
+            self.current_active_file = os.path.abspath(path)
+        else:
+            dir_path = os.path.abspath(path)
+            if current_filepath:
+                self.current_active_file = os.path.abspath(current_filepath)
+
+        self.current_dir = dir_path
+
+        # Clear list box
         while True:
             row = self.list_box.get_row_at_index(0)
             if not row:
                 break
             self.list_box.remove(row)
 
-        dir_path = os.path.dirname(os.path.abspath(current_filepath))
-        folder_name = os.path.basename(dir_path)
-        
         # Set dynamic folder title and full path tooltip
+        folder_name = os.path.basename(dir_path) or dir_path
         escaped_folder_name = GLib.markup_escape_text(folder_name)
         self.title_label.set_markup(f"<b>{escaped_folder_name}</b>")
         self.title_label.set_tooltip_text(dir_path)
 
+        # Enable/Disable Up button
+        self.btn_up.set_sensitive(dir_path != "/")
+
         try:
-            files = [f for f in os.listdir(dir_path) if f.lower().endswith(('.md', '.markdown'))]
-            files.sort(key=str.lower)
-            for f in files:
-                full_path = os.path.join(dir_path, f)
-                label = Gtk.Label(label=f, xalign=0.0)
-                label.set_margin_start(12)
-                label.set_margin_end(12)
-                label.set_margin_top(8)
-                label.set_margin_bottom(8)
-
-                row = Gtk.ListBoxRow()
-                row.set_child(label)
-                row.filepath = full_path
-
-                self.list_box.append(row)
-
-                if os.path.abspath(full_path) == os.path.abspath(current_filepath):
-                    self.list_box.select_row(row)
+            items = os.listdir(dir_path)
         except Exception as e:
-            print(f"Error loading directory: {e}")
+            print(f"Error loading directory {dir_path}: {e}")
+            return
+
+        # Segregate files and folders
+        folders = []
+        md_files = []
+
+        for item in items:
+            if item.startswith('.'):
+                continue
+            full_path = os.path.join(dir_path, item)
+            try:
+                if os.path.isdir(full_path):
+                    folders.append((item, full_path))
+                elif item.lower().endswith(('.md', '.markdown')):
+                    md_files.append((item, full_path))
+            except Exception:
+                continue
+
+        # Sort alphabetically
+        folders.sort(key=lambda x: x[0].lower())
+        md_files.sort(key=lambda x: x[0].lower())
+
+        # Render folders first
+        for name, full_path in folders:
+            row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            row_box.set_margin_start(12)
+            row_box.set_margin_end(12)
+            row_box.set_margin_top(6)
+            row_box.set_margin_bottom(6)
+
+            icon = Gtk.Image.new_from_icon_name("folder-symbolic")
+            label = Gtk.Label(label=name, xalign=0.0)
+            row_box.append(icon)
+            row_box.append(label)
+
+            row = Gtk.ListBoxRow()
+            row.set_child(row_box)
+            row.path = full_path
+            row.is_folder = True
+            self.list_box.append(row)
+
+        # Render markdown files
+        for name, full_path in md_files:
+            row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            row_box.set_margin_start(12)
+            row_box.set_margin_end(12)
+            row_box.set_margin_top(6)
+            row_box.set_margin_bottom(6)
+
+            icon = Gtk.Image.new_from_icon_name("text-x-generic-symbolic")
+            label = Gtk.Label(label=name, xalign=0.0)
+            row_box.append(icon)
+            row_box.append(label)
+
+            row = Gtk.ListBoxRow()
+            row.set_child(row_box)
+            row.path = full_path
+            row.is_folder = False
+            self.list_box.append(row)
+
+            # Highlight currently active file
+            if self.current_active_file and os.path.abspath(full_path) == self.current_active_file:
+                self.list_box.select_row(row)

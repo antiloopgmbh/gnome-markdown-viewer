@@ -1,7 +1,7 @@
 import os
 import mimetypes
 import urllib.parse
-from gi.repository import WebKit, Gtk, GObject, Gio, GLib
+from gi.repository import WebKit, Gtk, GObject, Gio, GLib, Gdk
 
 class DocumentView(WebKit.WebView):
     __gsignals__ = {
@@ -15,6 +15,14 @@ class DocumentView(WebKit.WebView):
         super().__init__()
         self.set_vexpand(True)
         self.set_hexpand(True)
+
+        # Set transparent background to match system theme and prevent jarring black/white flashes during load
+        transparent = Gdk.RGBA()
+        transparent.red = 0.0
+        transparent.green = 0.0
+        transparent.blue = 0.0
+        transparent.alpha = 0.0
+        self.set_background_color(transparent)
 
         # Configure WebKit Settings
         settings = self.get_settings()

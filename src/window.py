@@ -27,7 +27,7 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.main_box.append(self.header_bar)
 
         # Toggle Left Sidebar Button (File browser)
-        self.btn_left_sidebar = Gtk.ToggleButton(icon_name="folder-symbolic")
+        self.btn_left_sidebar = Gtk.ToggleButton(icon_name="view-list-bullet-symbolic")
         self.btn_left_sidebar.set_tooltip_text("Toggle file sidebar")
         self.btn_left_sidebar.connect("toggled", self.toggle_left_sidebar)
         self.header_bar.pack_start(self.btn_left_sidebar)

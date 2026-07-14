@@ -134,19 +134,25 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.right_paned.set_shrink_end_child(False)
         self.left_paned.set_end_child(self.right_paned)
 
-        # Main Content: WebView
+        # Main Content: WebView wrapper to intercept capture-phase scroll events
+        self.webview_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.webview_container.set_vexpand(True)
+        self.webview_container.set_hexpand(True)
+
         self.webview = DocumentView()
         self.webview.connect("outline-received", self.on_outline_received)
         self.webview.connect("file-navigation-requested", self.on_file_navigation_requested)
         self.webview.connect("mouse-back-clicked", lambda w: self.go_back())
         self.webview.connect("mouse-forward-clicked", lambda w: self.go_forward())
-        self.right_paned.set_start_child(self.webview)
+        
+        self.webview_container.append(self.webview)
+        self.right_paned.set_start_child(self.webview_container)
 
-        # Scroll controller for Ctrl+Mouse Scroll zoom (running in CAPTURE phase to intercept before WebKit)
+        # Scroll controller on the container (running in CAPTURE phase to intercept before WebKit receives it)
         scroll_controller = Gtk.EventControllerScroll.new(Gtk.EventControllerScrollFlags.VERTICAL)
         scroll_controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         scroll_controller.connect("scroll", self.on_webview_scroll)
-        self.webview.add_controller(scroll_controller)
+        self.webview_container.add_controller(scroll_controller)
 
         # Right Sidebar (Outline)
         self.outline_sidebar = OutlineSidebar()

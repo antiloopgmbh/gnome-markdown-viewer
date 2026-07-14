@@ -19,4 +19,7 @@ if __name__ == "__main__":
     GLib.set_prgname("com.antiloop.MarkdownViewer")
     GLib.set_application_name("Antiloop Markdown Viewer")
     app = MarkdownViewerApp()
-    sys.exit(app.run(sys.argv))
+    try:
+        sys.exit(app.run(sys.argv))
+    except KeyboardInterrupt:
+        sys.exit(0)

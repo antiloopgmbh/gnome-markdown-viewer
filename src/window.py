@@ -1,6 +1,6 @@
 import os
 import urllib.parse
-from gi.repository import Gtk, Adw, Gio, GLib, Pango
+from gi.repository import Gtk, Adw, Gio, GLib, Pango, Gdk
 
 from core.history import NavigationHistory
 from core.renderer import render_markdown
@@ -19,6 +19,7 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.settings = AppSettings()
         self.file_monitor = None
         self.current_zoom = 1.0
+        self.scroll_accumulated_dy = 0.0
 
         # Setup main container
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -385,12 +386,23 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
     def on_webview_scroll(self, controller, dx, dy):
         state = controller.get_current_event_state()
         if state & Gdk.ModifierType.CONTROL_MASK:
-            if dy < 0:
+            self.scroll_accumulated_dy += dy
+            
+            # Reset accumulator if scroll direction changes
+            if (dy > 0 and self.scroll_accumulated_dy < 0) or (dy < 0 and self.scroll_accumulated_dy > 0):
+                self.scroll_accumulated_dy = dy
+
+            # Trigger zoom step for each full unit (1.0) accumulated
+            while self.scroll_accumulated_dy <= -1.0:
                 self.zoom_in()
-            elif dy > 0:
+                self.scroll_accumulated_dy += 1.0
+            while self.scroll_accumulated_dy >= 1.0:
                 self.zoom_out()
+                self.scroll_accumulated_dy -= 1.0
             return True
-        return False
+        else:
+            self.scroll_accumulated_dy = 0.0
+            return False
 
     def zoom_in(self):
         self.set_zoom_factor(self.current_zoom + 0.1)

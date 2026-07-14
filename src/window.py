@@ -93,12 +93,21 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.btn_right_sidebar.connect("toggled", self.toggle_right_sidebar)
         self.header_bar.pack_end(self.btn_right_sidebar)
 
-        # Reset Zoom Button
-        self.btn_zoom = Gtk.Button(label="100%")
-        self.btn_zoom.set_tooltip_text("Reset zoom to 100% (Ctrl+0)")
-        self.btn_zoom.connect("clicked", lambda x: self.zoom_reset())
-        self.btn_zoom.set_visible(False)
-        self.header_bar.pack_end(self.btn_zoom)
+        # Reset Zoom Container
+        self.zoom_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.zoom_box.set_valign(Gtk.Align.CENTER)
+        self.zoom_box.set_visible(False)
+
+        self.lbl_zoom_factor = Gtk.Label(label="100%")
+        self.lbl_zoom_factor.set_opacity(0.6)
+        self.zoom_box.append(self.lbl_zoom_factor)
+
+        self.btn_zoom_reset = Gtk.Button(label="Reset")
+        self.btn_zoom_reset.set_tooltip_text("Reset zoom to 100% (Ctrl+0)")
+        self.btn_zoom_reset.connect("clicked", lambda x: self.zoom_reset())
+        self.zoom_box.append(self.btn_zoom_reset)
+
+        self.header_bar.pack_end(self.zoom_box)
 
         # Outer Paned (Left Sidebar + Inner Area)
         self.left_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
@@ -133,8 +142,9 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.webview.connect("mouse-forward-clicked", lambda w: self.go_forward())
         self.right_paned.set_start_child(self.webview)
 
-        # Scroll controller for Ctrl+Mouse Scroll zoom
+        # Scroll controller for Ctrl+Mouse Scroll zoom (running in CAPTURE phase to intercept before WebKit)
         scroll_controller = Gtk.EventControllerScroll.new(Gtk.EventControllerScrollFlags.VERTICAL)
+        scroll_controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         scroll_controller.connect("scroll", self.on_webview_scroll)
         self.webview.add_controller(scroll_controller)
 
@@ -392,11 +402,11 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.webview.set_zoom_level(factor)
         
         if abs(factor - 1.0) < 0.01:
-            self.btn_zoom.set_visible(False)
+            self.zoom_box.set_visible(False)
         else:
             percent = int(factor * 100)
-            self.btn_zoom.set_label(f"{percent}%")
-            self.btn_zoom.set_visible(True)
+            self.lbl_zoom_factor.set_text(f"{percent}%")
+            self.zoom_box.set_visible(True)
 
     def do_destroy(self):
         if self.file_monitor:

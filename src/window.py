@@ -1,6 +1,6 @@
 import os
 import urllib.parse
-from gi.repository import Gtk, Adw, Gio, GLib, Pango, Gdk
+from gi.repository import Gtk, Adw, Gio, GLib, Pango, Gdk, WebKit
 
 from core.history import NavigationHistory
 from core.renderer import render_markdown
@@ -20,6 +20,8 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.file_monitor = None
         self.current_zoom = 1.0
         self.scroll_accumulated_dy = 0.0
+        self.current_match_index = 0
+        self.total_matches = 0
 
         # Setup main container
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -28,6 +30,52 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         # Header Bar
         self.header_bar = Adw.HeaderBar()
         self.main_box.append(self.header_bar)
+
+        # Search Bar
+        self.search_bar = Gtk.SearchBar()
+        self.search_bar.set_valign(Gtk.Align.START)
+        self.search_bar.set_key_capture_widget(self)
+
+        self.search_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.search_box.set_margin_start(12)
+        self.search_box.set_margin_end(12)
+        self.search_box.set_margin_top(6)
+        self.search_box.set_margin_bottom(6)
+
+        self.search_entry = Gtk.SearchEntry()
+        self.search_entry.set_hexpand(True)
+        self.search_entry.set_placeholder_text("Search in document...")
+        self.search_entry.connect("search-changed", self.on_search_changed)
+        self.search_entry.connect("stop-search", lambda x: self.hide_search())
+        self.search_box.append(self.search_entry)
+
+        self.lbl_search_count = Gtk.Label(label="0/0")
+        self.lbl_search_count.set_opacity(0.6)
+        self.search_box.append(self.lbl_search_count)
+
+        self.btn_search_prev = Gtk.Button(icon_name="go-up-symbolic")
+        self.btn_search_prev.set_tooltip_text("Previous match (Shift+Enter)")
+        self.btn_search_prev.connect("clicked", self.on_search_prev)
+        self.search_box.append(self.btn_search_prev)
+
+        self.btn_search_next = Gtk.Button(icon_name="go-down-symbolic")
+        self.btn_search_next.set_tooltip_text("Next match (Enter)")
+        self.btn_search_next.connect("clicked", self.on_search_next)
+        self.search_box.append(self.btn_search_next)
+
+        self.btn_search_close = Gtk.Button(icon_name="window-close-symbolic")
+        self.btn_search_close.set_tooltip_text("Close search (Esc)")
+        self.btn_search_close.connect("clicked", lambda x: self.hide_search())
+        self.search_box.append(self.btn_search_close)
+
+        self.search_bar.set_child(self.search_box)
+        self.search_bar.connect_entry(self.search_entry)
+        self.main_box.append(self.search_bar)
+
+        # Key controller on search entry to capture Enter / Shift+Enter
+        search_key_ctrl = Gtk.EventControllerKey.new()
+        search_key_ctrl.connect("key-pressed", self.on_search_key_pressed)
+        self.search_entry.add_controller(search_key_ctrl)
 
         # Toggle Left Sidebar Button (File browser)
         self.btn_left_sidebar = Gtk.ToggleButton(icon_name="view-list-bullet-symbolic")
@@ -110,6 +158,13 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
 
         self.header_bar.pack_end(self.zoom_box)
 
+        # Print Button
+        self.btn_print = Gtk.Button(icon_name="printer-symbolic")
+        self.btn_print.set_tooltip_text("Print Document (Ctrl+P)")
+        self.btn_print.connect("clicked", lambda x: self.print_document())
+        self.btn_print.set_sensitive(False)
+        self.header_bar.pack_end(self.btn_print)
+
         # Outer Paned (Left Sidebar + Inner Area)
         self.left_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         self.left_paned.set_vexpand(True)
@@ -155,6 +210,12 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         scroll_controller.connect("scroll", self.on_webview_scroll)
         self.webview_container.add_controller(scroll_controller)
 
+        # Setup WebKit FindController
+        self.find_controller = self.webview.get_find_controller()
+        self.find_controller.connect("counted-matches", self.on_counted_matches)
+        self.find_controller.connect("found-text", self.on_found_text)
+        self.find_controller.connect("failed-to-find-text", self.on_failed_to_find_text)
+
         # Right Sidebar (Outline)
         self.outline_sidebar = OutlineSidebar()
         self.outline_sidebar.connect("heading-activated", self.on_heading_activated)
@@ -185,6 +246,14 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         action_zoom_reset.connect("activate", lambda a, p: self.zoom_reset())
         self.add_action(action_zoom_reset)
 
+        action_find = Gio.SimpleAction.new("find", None)
+        action_find.connect("activate", lambda a, p: self.show_search())
+        self.add_action(action_find)
+
+        action_print = Gio.SimpleAction.new("print", None)
+        action_print.connect("activate", lambda a, p: self.print_document())
+        self.add_action(action_print)
+
         self.show_placeholder()
 
     def show_placeholder(self):
@@ -202,6 +271,8 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.btn_right_sidebar.set_active(False)
         self.btn_left_sidebar.set_sensitive(False)
         self.btn_right_sidebar.set_sensitive(False)
+        self.btn_print.set_sensitive(False)
+        self.hide_search()
 
     def close_document(self):
         if self.file_monitor:
@@ -246,10 +317,20 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
 
         self.btn_left_sidebar.set_sensitive(True)
         self.btn_right_sidebar.set_sensitive(True)
+        self.btn_print.set_sensitive(True)
         self.btn_left_sidebar.set_active(self.settings.show_left_sidebar)
         self.btn_right_sidebar.set_active(self.settings.show_right_sidebar)
         self.file_sidebar.set_visible(self.settings.show_left_sidebar)
         self.outline_sidebar.set_visible(self.settings.show_right_sidebar)
+
+        if self.settings.show_left_sidebar:
+            self.left_paned.set_position(240)
+        if self.settings.show_right_sidebar:
+            width = self.right_paned.get_width()
+            if width > 300:
+                self.right_paned.set_position(width - 240)
+            else:
+                self.right_paned.set_position(520)
 
         self.file_sidebar.load_directory(filepath)
         self.outline_sidebar.set_filename(filepath)
@@ -301,12 +382,20 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
     def toggle_left_sidebar(self, btn):
         active = btn.get_active()
         self.file_sidebar.set_visible(active)
+        if active:
+            self.left_paned.set_position(240)
         if self.history.current_filepath:
             self.settings.show_left_sidebar = active
 
     def toggle_right_sidebar(self, btn):
         active = btn.get_active()
         self.outline_sidebar.set_visible(active)
+        if active:
+            width = self.right_paned.get_width()
+            if width > 300:
+                self.right_paned.set_position(width - 240)
+            else:
+                self.right_paned.set_position(520)
         if self.history.current_filepath:
             self.settings.show_right_sidebar = active
 
@@ -476,3 +565,69 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
                 self.open_file(file.get_path(), save_to_history=True, is_explicit=True)
         except Exception as e:
             print(f"Error selecting file: {e}")
+
+    # --- Search and Find Functions ---
+    def show_search(self):
+        if not self.history.current_filepath:
+            return
+        self.search_bar.set_search_mode(True)
+        self.search_entry.grab_focus()
+
+    def hide_search(self):
+        self.search_bar.set_search_mode(False)
+        self.find_controller.search_finish()
+        self.webview.grab_focus()
+
+    def on_search_changed(self, entry):
+        text = entry.get_text()
+        if not text:
+            self.find_controller.search_finish()
+            self.current_match_index = 0
+            self.total_matches = 0
+            self.update_search_label()
+        else:
+            options = WebKit.FindOptions.CASE_INSENSITIVE | WebKit.FindOptions.WRAP_AROUND
+            self.find_controller.search(text, options, 1000)
+
+    def on_search_next(self, *args):
+        self.find_controller.search_next()
+
+    def on_search_prev(self, *args):
+        self.find_controller.search_previous()
+
+    def on_search_key_pressed(self, controller, keyval, keycode, state):
+        if keyval == Gdk.KEY_Return:
+            if state & Gdk.ModifierType.SHIFT_MASK:
+                self.on_search_prev()
+                return True
+            else:
+                self.on_search_next()
+                return True
+        return False
+
+    def on_counted_matches(self, controller, match_count):
+        self.total_matches = match_count
+        self.update_search_label()
+
+    def on_found_text(self, controller, match_index):
+        self.current_match_index = match_index + 1
+        self.update_search_label()
+
+    def on_failed_to_find_text(self, controller):
+        self.current_match_index = 0
+        self.total_matches = 0
+        self.update_search_label()
+
+    def update_search_label(self):
+        if self.total_matches > 0:
+            self.lbl_search_count.set_text(f"{self.current_match_index}/{self.total_matches}")
+        else:
+            self.lbl_search_count.set_text("0/0")
+
+    # --- Print Functions ---
+    def print_document(self):
+        if self.history.current_filepath:
+            print_op = WebKit.PrintOperation.new(self.webview)
+            filename = os.path.basename(self.history.current_filepath)
+            print_op.set_job_name(f"Markdown Viewer - {filename}")
+            print_op.run_dialog(self)

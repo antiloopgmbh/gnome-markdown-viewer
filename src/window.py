@@ -17,6 +17,7 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
 
         self.history = NavigationHistory()
         self.settings = AppSettings()
+        self.file_monitor = None
 
         # Setup main container
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -161,6 +162,9 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.btn_right_sidebar.set_sensitive(False)
 
     def close_document(self):
+        if self.file_monitor:
+            self.file_monitor.cancel()
+            self.file_monitor = None
         self.history = NavigationHistory()
         self.settings.last_opened_filepath = None
         self.show_placeholder()
@@ -172,6 +176,19 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         print("OPENING FILEPATH:", filepath, flush=True)
         if not os.path.exists(filepath):
             return
+
+        # Cancel previous monitor if any
+        if self.file_monitor:
+            self.file_monitor.cancel()
+            self.file_monitor = None
+
+        # Setup file monitor for reload on change
+        gio_file = Gio.File.new_for_path(filepath)
+        try:
+            self.file_monitor = gio_file.monitor_file(Gio.FileMonitorFlags.NONE, None)
+            self.file_monitor.connect("changed", self.on_file_changed_on_disk)
+        except Exception as e:
+            print("Failed to monitor file:", e)
 
         self.history.open_file(filepath, save_to_history=save_to_history)
         
@@ -313,6 +330,21 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
             self.open_file(self.history.current_filepath, save_to_history=False, is_explicit=False)
         else:
             self.show_placeholder()
+
+    def on_file_changed_on_disk(self, monitor, file, other_file, event_type):
+        if event_type in (Gio.FileMonitorEvent.CHANGES_DONE_HINT, Gio.FileMonitorEvent.CHANGED):
+            GLib.idle_add(self.reload_current_file)
+
+    def reload_current_file(self):
+        if self.history.current_filepath and os.path.exists(self.history.current_filepath):
+            self.open_file(self.history.current_filepath, save_to_history=False, is_explicit=False)
+        return False
+
+    def do_destroy(self):
+        if self.file_monitor:
+            self.file_monitor.cancel()
+            self.file_monitor = None
+        Adw.ApplicationWindow.do_destroy(self)
 
     def resolve_portal_path(self, filepath):
         # Try to read FUSE extended attribute 'user.document-portal.host-path'

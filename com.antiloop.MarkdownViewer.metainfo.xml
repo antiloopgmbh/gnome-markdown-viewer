@@ -20,4 +20,5 @@
   </screenshots>
   <url type="homepage">https://github.com/antiloopgmbh/gnome-markdown-viewer</url>
   <developer_name>Antiloop GmbH</developer_name>
+  <content_rating type="oars-1.1" />
 </component>

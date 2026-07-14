@@ -5,6 +5,6 @@ Exec=main.py %U
 Icon=com.antiloop.MarkdownViewer
 Terminal=false
 Type=Application
-Categories=Office;WordProcessor;Utility;
+Categories=Office;Viewer;
 MimeType=text/markdown;text/x-markdown;
 StartupNotify=true

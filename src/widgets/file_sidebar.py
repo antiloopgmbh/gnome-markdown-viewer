@@ -53,7 +53,7 @@ class FileSidebar(Gtk.Box):
         scroll.set_child(self.list_box)
 
     def on_row_activated(self, list_box, row):
-        if row and hasattr(row, 'path'):
+        if row and not getattr(row, 'is_placeholder', False) and hasattr(row, 'path'):
             if row.is_folder:
                 # Navigate inside the folder
                 self.load_directory(row.path, current_filepath=self.current_active_file)
@@ -119,6 +119,32 @@ class FileSidebar(Gtk.Box):
         # Sort alphabetically
         folders.sort(key=lambda x: x[0].lower())
         md_files.sort(key=lambda x: x[0].lower())
+
+        # Show empty folder placeholder
+        if not folders and not md_files:
+            row_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+            row_box.set_margin_top(48)
+            row_box.set_margin_bottom(48)
+            row_box.set_halign(Gtk.Align.CENTER)
+            row_box.set_valign(Gtk.Align.CENTER)
+
+            icon = Gtk.Image.new_from_icon_name("info-symbolic")
+            icon.set_pixel_size(32)
+            icon.set_opacity(0.4)
+            row_box.append(icon)
+
+            label = Gtk.Label(label="No Markdown files found")
+            label.add_css_class("dim-label")
+            label.set_opacity(0.6)
+            row_box.append(label)
+
+            row = Gtk.ListBoxRow()
+            row.set_child(row_box)
+            row.set_selectable(False)
+            row.set_activatable(False)
+            row.is_placeholder = True
+            self.list_box.append(row)
+            return
 
         # Render folders first
         for name, full_path in folders:

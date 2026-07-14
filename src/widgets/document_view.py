@@ -92,12 +92,10 @@ class DocumentView(WebKit.WebView):
             gesture.set_state(Gtk.EventSequenceState.CLAIMED)
 
     def on_decide_policy(self, webview, decision, decision_type):
-        print("DECIDE POLICY TYPE:", decision_type, flush=True)
         if decision_type == WebKit.PolicyDecisionType.NAVIGATION_ACTION:
             action = decision.get_navigation_action()
             request = action.get_request()
             uri = request.get_uri()
-            print("NAVIGATION REQUEST URI:", uri, "user_gesture:", action.is_user_gesture(), flush=True)
 
             if action.is_user_gesture():
                 parsed_target = urllib.parse.urlparse(uri)

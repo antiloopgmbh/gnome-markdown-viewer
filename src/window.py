@@ -7,6 +7,7 @@ from core.renderer import render_markdown
 from widgets.file_sidebar import FileSidebar
 from widgets.outline_sidebar import OutlineSidebar
 from widgets.document_view import DocumentView
+from core.settings import AppSettings
 
 class MarkdownViewerWindow(Adw.ApplicationWindow):
     def __init__(self, **kwargs):
@@ -15,6 +16,7 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.set_title("Antiloop Markdown Viewer")
 
         self.history = NavigationHistory()
+        self.settings = AppSettings()
 
         # Setup main container
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -142,10 +144,10 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
 
         self.btn_left_sidebar.set_sensitive(True)
         self.btn_right_sidebar.set_sensitive(True)
-        self.btn_left_sidebar.set_active(True)
-        self.btn_right_sidebar.set_active(True)
-        self.file_sidebar.set_visible(True)
-        self.outline_sidebar.set_visible(True)
+        self.btn_left_sidebar.set_active(self.settings.show_left_sidebar)
+        self.btn_right_sidebar.set_active(self.settings.show_right_sidebar)
+        self.file_sidebar.set_visible(self.settings.show_left_sidebar)
+        self.outline_sidebar.set_visible(self.settings.show_right_sidebar)
 
         self.file_sidebar.load_directory(filepath)
         self.outline_sidebar.set_filename(filepath)
@@ -194,10 +196,16 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.outline_sidebar.populate(outline_json_str)
 
     def toggle_left_sidebar(self, btn):
-        self.file_sidebar.set_visible(btn.get_active())
+        active = btn.get_active()
+        self.file_sidebar.set_visible(active)
+        if self.history.current_filepath:
+            self.settings.show_left_sidebar = active
 
     def toggle_right_sidebar(self, btn):
-        self.outline_sidebar.set_visible(btn.get_active())
+        active = btn.get_active()
+        self.outline_sidebar.set_visible(active)
+        if self.history.current_filepath:
+            self.settings.show_right_sidebar = active
 
     def on_theme_changed(self, manager, gspec):
         if self.history.current_filepath:

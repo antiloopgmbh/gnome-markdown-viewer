@@ -57,6 +57,9 @@ Building and running the application in a secure sandbox.
 | **`Ctrl + O`** | Open a new Markdown file |
 | **`Ctrl + W`** | Close the current document (returns to placeholder screen) |
 | **`Ctrl + Q`** | Quit the application |
+| **`Ctrl + Mouse Scroll`** | Zoom document in / out |
+| **`Ctrl + +` / **`Ctrl + -`** | Zoom document in / out |
+| **`Ctrl + 0`** | Reset zoom to 100% |
 | **`Mouse Back/Forward`** | Navigate back/forward through document history |
 
 ---

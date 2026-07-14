@@ -18,6 +18,7 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.history = NavigationHistory()
         self.settings = AppSettings()
         self.file_monitor = None
+        self.current_zoom = 1.0
 
         # Setup main container
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -92,6 +93,13 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.btn_right_sidebar.connect("toggled", self.toggle_right_sidebar)
         self.header_bar.pack_end(self.btn_right_sidebar)
 
+        # Reset Zoom Button
+        self.btn_zoom = Gtk.Button(label="100%")
+        self.btn_zoom.set_tooltip_text("Reset zoom to 100% (Ctrl+0)")
+        self.btn_zoom.connect("clicked", lambda x: self.zoom_reset())
+        self.btn_zoom.set_visible(False)
+        self.header_bar.pack_end(self.btn_zoom)
+
         # Outer Paned (Left Sidebar + Inner Area)
         self.left_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         self.left_paned.set_vexpand(True)
@@ -125,6 +133,11 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.webview.connect("mouse-forward-clicked", lambda w: self.go_forward())
         self.right_paned.set_start_child(self.webview)
 
+        # Scroll controller for Ctrl+Mouse Scroll zoom
+        scroll_controller = Gtk.EventControllerScroll.new(Gtk.EventControllerScrollFlags.VERTICAL)
+        scroll_controller.connect("scroll", self.on_webview_scroll)
+        self.webview.add_controller(scroll_controller)
+
         # Right Sidebar (Outline)
         self.outline_sidebar = OutlineSidebar()
         self.outline_sidebar.connect("heading-activated", self.on_heading_activated)
@@ -142,6 +155,18 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         action_close_doc = Gio.SimpleAction.new("close_document", None)
         action_close_doc.connect("activate", lambda a, p: self.close_document())
         self.add_action(action_close_doc)
+
+        action_zoom_in = Gio.SimpleAction.new("zoom_in", None)
+        action_zoom_in.connect("activate", lambda a, p: self.zoom_in())
+        self.add_action(action_zoom_in)
+
+        action_zoom_out = Gio.SimpleAction.new("zoom_out", None)
+        action_zoom_out.connect("activate", lambda a, p: self.zoom_out())
+        self.add_action(action_zoom_out)
+
+        action_zoom_reset = Gio.SimpleAction.new("zoom_reset", None)
+        action_zoom_reset.connect("activate", lambda a, p: self.zoom_reset())
+        self.add_action(action_zoom_reset)
 
         self.show_placeholder()
 
@@ -228,6 +253,7 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         parent_dir = os.path.dirname(filepath)
         base_uri = "app-local://" + urllib.parse.quote(parent_dir, safe='/') + "/"
         self.webview.load_html(html, base_uri)
+        self.webview.set_zoom_level(self.current_zoom)
 
     def go_back(self):
         prev_file = self.history.go_back()
@@ -339,6 +365,38 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         if self.history.current_filepath and os.path.exists(self.history.current_filepath):
             self.open_file(self.history.current_filepath, save_to_history=False, is_explicit=False)
         return False
+
+    def on_webview_scroll(self, controller, dx, dy):
+        state = controller.get_current_event_state()
+        if state & Gdk.ModifierType.CONTROL_MASK:
+            if dy < 0:
+                self.zoom_in()
+            elif dy > 0:
+                self.zoom_out()
+            return True
+        return False
+
+    def zoom_in(self):
+        self.set_zoom_factor(self.current_zoom + 0.1)
+
+    def zoom_out(self):
+        self.set_zoom_factor(self.current_zoom - 0.1)
+
+    def zoom_reset(self):
+        self.set_zoom_factor(1.0)
+
+    def set_zoom_factor(self, factor):
+        factor = max(0.5, min(3.0, factor))
+        factor = round(factor, 2)
+        self.current_zoom = factor
+        self.webview.set_zoom_level(factor)
+        
+        if abs(factor - 1.0) < 0.01:
+            self.btn_zoom.set_visible(False)
+        else:
+            percent = int(factor * 100)
+            self.btn_zoom.set_label(f"{percent}%")
+            self.btn_zoom.set_visible(True)
 
     def do_destroy(self):
         if self.file_monitor:

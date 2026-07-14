@@ -19,6 +19,9 @@ class MarkdownViewerApp(Adw.Application):
         self.set_accels_for_action("app.quit", ["<Control>q"])
         self.set_accels_for_action("win.open", ["<Control>o"])
         self.set_accels_for_action("win.close_document", ["<Control>w"])
+        self.set_accels_for_action("win.zoom_in", ["<Control>plus", "<Control>equal", "<Control>KP_Add"])
+        self.set_accels_for_action("win.zoom_out", ["<Control>minus", "<Control>KP_Subtract"])
+        self.set_accels_for_action("win.zoom_reset", ["<Control>0", "<Control>KP_0"])
 
     def do_activate(self):
         win = self.get_active_window()

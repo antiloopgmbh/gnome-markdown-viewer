@@ -1,6 +1,6 @@
 import os
 import urllib.parse
-from gi.repository import Gtk, Adw, Gio
+from gi.repository import Gtk, Adw, Gio, GLib, Pango
 
 from core.history import NavigationHistory
 from core.renderer import render_markdown
@@ -37,6 +37,38 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.btn_open.set_tooltip_text("Open markdown file")
         self.btn_open.connect("clicked", lambda x: self.show_file_chooser())
         self.header_bar.pack_start(self.btn_open)
+
+        # Recent Files MenuButton
+        self.btn_recents = Gtk.MenuButton(icon_name="document-open-recent-symbolic")
+        self.btn_recents.set_tooltip_text("Recent Files")
+        
+        self.recents_popover = Gtk.Popover()
+        self.recents_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        self.recents_box.set_margin_start(6)
+        self.recents_box.set_margin_end(6)
+        self.recents_box.set_margin_top(6)
+        self.recents_box.set_margin_bottom(6)
+        
+        title_lbl = Gtk.Label(xalign=0.0)
+        title_lbl.set_markup("<b>Recent Files</b>")
+        title_lbl.set_margin_start(6)
+        title_lbl.set_margin_bottom(6)
+        self.recents_box.append(title_lbl)
+        
+        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        sep.set_margin_bottom(4)
+        self.recents_box.append(sep)
+
+        self.recents_list = Gtk.ListBox()
+        self.recents_list.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.recents_list.connect("row-activated", self.on_recent_file_activated)
+        self.recents_box.append(self.recents_list)
+        
+        self.recents_popover.set_child(self.recents_box)
+        self.btn_recents.set_popover(self.recents_popover)
+        self.recents_popover.connect("notify::visible", self.update_recents_menu)
+        
+        self.header_bar.pack_start(self.btn_recents)
 
         # Navigation box (Back / Forward)
         self.nav_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
@@ -106,9 +138,9 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         action_open.connect("activate", lambda a, p: self.show_file_chooser())
         self.add_action(action_open)
 
-        action_close = Gio.SimpleAction.new("close", None)
-        action_close.connect("activate", lambda a, p: self.close())
-        self.add_action(action_close)
+        action_close_doc = Gio.SimpleAction.new("close_document", None)
+        action_close_doc.connect("activate", lambda a, p: self.close_document())
+        self.add_action(action_close_doc)
 
         self.show_placeholder()
 
@@ -128,7 +160,12 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.btn_left_sidebar.set_sensitive(False)
         self.btn_right_sidebar.set_sensitive(False)
 
-    def open_file(self, filepath, save_to_history=True):
+    def close_document(self):
+        self.history = NavigationHistory()
+        self.settings.last_opened_filepath = None
+        self.show_placeholder()
+
+    def open_file(self, filepath, save_to_history=True, is_explicit=False):
         filepath = os.path.abspath(filepath)
         if filepath.startswith("/run/user/"):
             filepath = self.resolve_portal_path(filepath)
@@ -137,6 +174,12 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
             return
 
         self.history.open_file(filepath, save_to_history=save_to_history)
+        
+        # Save to recents and last opened filepath if explicitly opened
+        if is_explicit:
+            self.settings.last_opened_filepath = filepath
+            self.settings.add_recent_file(filepath)
+
         self.btn_back.set_sensitive(self.history.can_go_back())
         self.btn_forward.set_sensitive(self.history.can_go_forward())
 
@@ -184,7 +227,7 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
             self.open_file(next_file, save_to_history=False)
 
     def on_file_activated(self, sidebar, filepath):
-        self.open_file(filepath, save_to_history=True)
+        self.open_file(filepath, save_to_history=True, is_explicit=False)
 
     def on_file_navigation_requested(self, webview, filepath):
         self.open_file(filepath, save_to_history=True)
@@ -207,9 +250,67 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         if self.history.current_filepath:
             self.settings.show_right_sidebar = active
 
+    def on_recent_file_activated(self, list_box, row):
+        if row and hasattr(row, 'filepath'):
+            self.recents_popover.popdown()
+            self.open_file(row.filepath, save_to_history=True, is_explicit=True)
+
+    def update_recents_menu(self, popover, gspec):
+        if not popover.get_visible():
+            return
+            
+        # Clear old rows
+        while True:
+            row = self.recents_list.get_row_at_index(0)
+            if not row:
+                break
+            self.recents_list.remove(row)
+            
+        recent_files = self.settings.recent_files
+        if not recent_files:
+            no_recents_lbl = Gtk.Label(label="No recent files", xalign=0.0)
+            no_recents_lbl.set_margin_start(6)
+            no_recents_lbl.set_margin_end(6)
+            no_recents_lbl.set_margin_top(8)
+            no_recents_lbl.set_margin_bottom(8)
+            
+            row = Gtk.ListBoxRow()
+            row.set_child(no_recents_lbl)
+            row.set_selectable(False)
+            row.set_activatable(False)
+            self.recents_list.append(row)
+            return
+
+        for filepath in recent_files:
+            filename = os.path.basename(filepath)
+            dir_path = os.path.dirname(filepath)
+            
+            row_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            row_box.set_margin_start(8)
+            row_box.set_margin_end(8)
+            row_box.set_margin_top(6)
+            row_box.set_margin_bottom(6)
+            
+            lbl_name = Gtk.Label(xalign=0.0)
+            lbl_name.set_markup(f"<b>{GLib.markup_escape_text(filename)}</b>")
+            
+            lbl_dir = Gtk.Label(label=dir_path, xalign=0.0)
+            lbl_dir.add_css_class("dim-label")
+            lbl_dir.set_opacity(0.6)
+            lbl_dir.set_ellipsize(Pango.EllipsizeMode.START)
+            lbl_dir.set_max_width_chars(40)
+            
+            row_box.append(lbl_name)
+            row_box.append(lbl_dir)
+            
+            row = Gtk.ListBoxRow()
+            row.set_child(row_box)
+            row.filepath = filepath
+            self.recents_list.append(row)
+
     def on_theme_changed(self, manager, gspec):
         if self.history.current_filepath:
-            self.open_file(self.history.current_filepath, save_to_history=False)
+            self.open_file(self.history.current_filepath, save_to_history=False, is_explicit=False)
         else:
             self.show_placeholder()
 
@@ -254,6 +355,6 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         try:
             file = dialog.open_finish(result)
             if file:
-                self.open_file(file.get_path(), save_to_history=True)
+                self.open_file(file.get_path(), save_to_history=True, is_explicit=True)
         except Exception as e:
             print(f"Error selecting file: {e}")

@@ -46,3 +46,25 @@ class AppSettings:
     def show_right_sidebar(self, value):
         self.data["show_right_sidebar"] = value
         self.save()
+
+    @property
+    def last_opened_filepath(self):
+        return self.data.get("last_opened_filepath", None)
+
+    @last_opened_filepath.setter
+    def last_opened_filepath(self, value):
+        self.data["last_opened_filepath"] = value
+        self.save()
+
+    @property
+    def recent_files(self):
+        return self.data.get("recent_files", [])
+
+    def add_recent_file(self, filepath):
+        filepath = os.path.abspath(filepath)
+        recents = list(self.recent_files)
+        if filepath in recents:
+            recents.remove(filepath)
+        recents.insert(0, filepath)
+        self.data["recent_files"] = recents[:10]
+        self.save()

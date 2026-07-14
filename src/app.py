@@ -1,3 +1,4 @@
+import os
 from gi.repository import Adw, Gio
 from window import MarkdownViewerWindow
 
@@ -17,13 +18,21 @@ class MarkdownViewerApp(Adw.Application):
 
         self.set_accels_for_action("app.quit", ["<Control>q"])
         self.set_accels_for_action("win.open", ["<Control>o"])
-        self.set_accels_for_action("win.close", ["<Control>w"])
+        self.set_accels_for_action("win.close_document", ["<Control>w"])
 
     def do_activate(self):
         win = self.get_active_window()
+        created = False
         if not win:
             win = MarkdownViewerWindow(application=self)
+            created = True
         win.present()
+        
+        # Reopen the last viewed document if the app was started without arguments
+        if created and not win.history.current_filepath:
+            last_file = win.settings.last_opened_filepath
+            if last_file and os.path.exists(last_file):
+                win.open_file(last_file, save_to_history=True, is_explicit=False)
 
     def do_open(self, files, n_files, hint):
         win = self.get_active_window()
@@ -31,4 +40,5 @@ class MarkdownViewerApp(Adw.Application):
             win = MarkdownViewerWindow(application=self)
         win.present()
         if n_files > 0:
-            win.open_file(files[0].get_path(), save_to_history=True)
+            # CLI launch is considered an explicit open action
+            win.open_file(files[0].get_path(), save_to_history=True, is_explicit=True)

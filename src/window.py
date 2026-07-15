@@ -626,8 +626,14 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
 
     # --- Print Functions ---
     def print_document(self):
-        if self.history.current_filepath:
-            print_op = WebKit.PrintOperation.new(self.webview)
-            filename = os.path.basename(self.history.current_filepath)
-            print_op.set_job_name(f"Markdown Viewer - {filename}")
-            print_op.run_dialog(self)
+        try:
+            if self.history.current_filepath:
+                print_op = WebKit.PrintOperation.new(self.webview)
+                settings = Gtk.PrintSettings.new()
+                filename = os.path.basename(self.history.current_filepath)
+                settings.set("job-name", f"Markdown Viewer - {filename}")
+                print_op.set_print_settings(settings)
+                print_op.run_dialog(self)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()

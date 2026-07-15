@@ -30,6 +30,53 @@
       background-color: var(--color-canvas-subtle) !important;
       border-bottom: 2px solid var(--color-border-default) !important;
     }
+    mark {
+      background-color: #ffeb3b !important;
+      color: #000000 !important;
+      border-radius: 2px !important;
+      padding: 0 2px !important;
+    }
+    mark.current-search-match {
+      background-color: #ff9800 !important;
+      color: #ffffff !important;
+      box-shadow: 0 0 3px rgba(0,0,0,0.5) !important;
+    }
+    @media print {
+      @page {
+        margin: 20mm !important;
+      }
+      body {
+        zoom: 75% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background-color: #ffffff !important;
+        color: #000000 !important;
+      }
+      .markdown-body {
+        font-size: 11pt !important;
+        line-height: 1.4 !important;
+        background-color: #ffffff !important;
+        color: #000000 !important;
+      }
+      .markdown-body h1 {
+        font-size: 16pt !important;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+      }
+      .markdown-body h2 {
+        font-size: 13pt !important;
+      }
+      .markdown-body h3 {
+        font-size: 11pt !important;
+      }
+      .markdown-body pre, 
+      .markdown-body code {
+        font-size: 9pt !important;
+      }
+      .mermaid, table, pre {
+        page-break-inside: avoid;
+      }
+    }
   </style>
 </head>
 <body class="markdown-body" data-color-mode="{{THEME}}" data-light-theme="light" data-dark-theme="dark">
@@ -92,6 +139,103 @@
       errDiv.style.display = 'block';
       errDiv.textContent = 'JavaScript Error:\n' + err.message + '\n\nStack:\n' + err.stack;
     }
+
+    // --- Custom DOM Search Highlighter ---
+    let searchMatches = [];
+    let currentSearchIndex = -1;
+
+    function postSearchResults(current, total) {
+        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.search) {
+            window.webkit.messageHandlers.search.postMessage(JSON.stringify({current: current, total: total}));
+        }
+    }
+
+    window.clearSearchHighlights = function() {
+        const marks = Array.from(document.querySelectorAll('mark'));
+        marks.forEach(mark => {
+            const parent = mark.parentNode;
+            if (parent) {
+                const textNode = document.createTextNode(mark.textContent);
+                parent.replaceChild(textNode, mark);
+                parent.normalize();
+            }
+        });
+        searchMatches = [];
+        currentSearchIndex = -1;
+        postSearchResults(0, 0);
+    };
+
+    window.highlightAll = function(text) {
+        window.clearSearchHighlights();
+        if (!text || text.trim() === "") {
+            return;
+        }
+        
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+        
+        const regex = new RegExp("(" + escapeRegExp(text) + ")", "gi");
+        
+        function traverse(node) {
+            if (node.nodeType === 3) { // Text node
+                const nodeValue = node.nodeValue;
+                if (nodeValue && nodeValue.match(regex)) {
+                    const span = document.createElement('span');
+                    span.innerHTML = nodeValue.replace(regex, '<mark>$1</mark>');
+                    const parent = node.parentNode;
+                    if (parent && !/(style|script|textarea)/i.test(parent.tagName)) {
+                        parent.replaceChild(span, node);
+                        while (span.firstChild) {
+                            parent.insertBefore(span.firstChild, span);
+                        }
+                        parent.removeChild(span);
+                      }
+                }
+            } else if (node.nodeType === 1 && node.childNodes && !/(style|script|textarea)/i.test(node.tagName)) {
+                for (let i = node.childNodes.length - 1; i >= 0; i--) {
+                    traverse(node.childNodes[i]);
+                }
+            }
+        }
+        
+        traverse(document.getElementById('content'));
+        
+        searchMatches = Array.from(document.querySelectorAll('mark'));
+        searchMatches.sort((a, b) => {
+            const pos = a.compareDocumentPosition(b);
+            if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+            if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+            return 0;
+        });
+
+        if (searchMatches.length > 0) {
+            currentSearchIndex = 0;
+            searchMatches[0].classList.add('current-search-match');
+            searchMatches[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            postSearchResults(1, searchMatches.length);
+        } else {
+            postSearchResults(0, 0);
+        }
+    };
+
+    window.nextSearchMatch = function() {
+        if (searchMatches.length === 0) return;
+        searchMatches[currentSearchIndex].classList.remove('current-search-match');
+        currentSearchIndex = (currentSearchIndex + 1) % searchMatches.length;
+        searchMatches[currentSearchIndex].classList.add('current-search-match');
+        searchMatches[currentSearchIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        postSearchResults(currentSearchIndex + 1, searchMatches.length);
+    };
+
+    window.prevSearchMatch = function() {
+        if (searchMatches.length === 0) return;
+        searchMatches[currentSearchIndex].classList.remove('current-search-match');
+        currentSearchIndex = (currentSearchIndex - 1 + searchMatches.length) % searchMatches.length;
+        searchMatches[currentSearchIndex].classList.add('current-search-match');
+        searchMatches[currentSearchIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        postSearchResults(currentSearchIndex + 1, searchMatches.length);
+    };
   </script>
 </body>
 </html>

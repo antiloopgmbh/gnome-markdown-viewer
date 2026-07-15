@@ -6,6 +6,7 @@ from gi.repository import WebKit, Gtk, GObject, Gio, GLib, Gdk
 class DocumentView(WebKit.WebView):
     __gsignals__ = {
         'outline-received': (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+        'search-results-updated': (GObject.SignalFlags.RUN_FIRST, None, (str,)),
         'file-navigation-requested': (GObject.SignalFlags.RUN_FIRST, None, (str,)),
         'mouse-back-clicked': (GObject.SignalFlags.RUN_FIRST, None, ()),
         'mouse-forward-clicked': (GObject.SignalFlags.RUN_FIRST, None, ())
@@ -34,10 +35,12 @@ class DocumentView(WebKit.WebView):
         context = self.get_context()
         context.register_uri_scheme("app-local", self.on_uri_scheme_request)
 
-        # Register script message handler
+        # Register script message handlers
         manager = self.get_user_content_manager()
         manager.register_script_message_handler("outline")
         manager.connect("script-message-received::outline", self.on_outline_received)
+        manager.register_script_message_handler("search")
+        manager.connect("script-message-received::search", self.on_search_received)
 
         # Navigation policy intercept
         self.connect("decide-policy", self.on_decide_policy)
@@ -81,6 +84,13 @@ class DocumentView(WebKit.WebView):
             self.emit('outline-received', outline_json)
         except Exception as e:
             print(f"Error handling outline script message: {e}")
+
+    def on_search_received(self, manager, jsc_value):
+        try:
+            search_json = jsc_value.to_string()
+            self.emit('search-results-updated', search_json)
+        except Exception as e:
+            print(f"Error handling search script message: {e}")
 
     def on_mouse_pressed(self, gesture, n_press, x, y):
         button = gesture.get_current_button()

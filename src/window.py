@@ -1,5 +1,6 @@
 import os
 import urllib.parse
+import json
 from gi.repository import Gtk, Adw, Gio, GLib, Pango, Gdk, WebKit
 
 from core.history import NavigationHistory
@@ -72,8 +73,9 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.search_bar.connect_entry(self.search_entry)
         self.main_box.append(self.search_bar)
 
-        # Key controller on search entry to capture Enter / Shift+Enter
+        # Key controller on search entry to capture Enter / Shift+Enter in CAPTURE phase
         search_key_ctrl = Gtk.EventControllerKey.new()
+        search_key_ctrl.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         search_key_ctrl.connect("key-pressed", self.on_search_key_pressed)
         self.search_entry.add_controller(search_key_ctrl)
 
@@ -165,6 +167,13 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.btn_print.set_sensitive(False)
         self.header_bar.pack_end(self.btn_print)
 
+        # Find (Search) Button
+        self.btn_find = Gtk.ToggleButton(icon_name="edit-find-symbolic")
+        self.btn_find.set_tooltip_text("Search in document (Ctrl+F)")
+        self.btn_find.connect("toggled", self.on_btn_find_toggled)
+        self.btn_find.set_sensitive(False)
+        self.header_bar.pack_end(self.btn_find)
+
         # Outer Paned (Left Sidebar + Inner Area)
         self.left_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         self.left_paned.set_vexpand(True)
@@ -197,6 +206,7 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
 
         self.webview = DocumentView()
         self.webview.connect("outline-received", self.on_outline_received)
+        self.webview.connect("search-results-updated", self.on_search_results_updated)
         self.webview.connect("file-navigation-requested", self.on_file_navigation_requested)
         self.webview.connect("mouse-back-clicked", lambda w: self.go_back())
         self.webview.connect("mouse-forward-clicked", lambda w: self.go_forward())
@@ -209,12 +219,6 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         scroll_controller.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         scroll_controller.connect("scroll", self.on_webview_scroll)
         self.webview_container.add_controller(scroll_controller)
-
-        # Setup WebKit FindController
-        self.find_controller = self.webview.get_find_controller()
-        self.find_controller.connect("counted-matches", self.on_counted_matches)
-        self.find_controller.connect("found-text", self.on_found_text)
-        self.find_controller.connect("failed-to-find-text", self.on_failed_to_find_text)
 
         # Right Sidebar (Outline)
         self.outline_sidebar = OutlineSidebar()
@@ -272,6 +276,8 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.btn_left_sidebar.set_sensitive(False)
         self.btn_right_sidebar.set_sensitive(False)
         self.btn_print.set_sensitive(False)
+        self.btn_find.set_sensitive(False)
+        self.btn_find.set_active(False)
         self.hide_search()
 
     def close_document(self):
@@ -318,6 +324,7 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.btn_left_sidebar.set_sensitive(True)
         self.btn_right_sidebar.set_sensitive(True)
         self.btn_print.set_sensitive(True)
+        self.btn_find.set_sensitive(True)
         self.btn_left_sidebar.set_active(self.settings.show_left_sidebar)
         self.btn_right_sidebar.set_active(self.settings.show_right_sidebar)
         self.file_sidebar.set_visible(self.settings.show_left_sidebar)
@@ -567,36 +574,45 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
             print(f"Error selecting file: {e}")
 
     # --- Search and Find Functions ---
+    def on_btn_find_toggled(self, btn):
+        active = btn.get_active()
+        if active:
+            self.show_search()
+        else:
+            self.hide_search()
+
     def show_search(self):
         if not self.history.current_filepath:
+            self.btn_find.set_active(False)
             return
         self.search_bar.set_search_mode(True)
         self.search_entry.grab_focus()
+        if not self.btn_find.get_active():
+            self.btn_find.set_active(True)
 
     def hide_search(self):
         self.search_bar.set_search_mode(False)
-        self.find_controller.search_finish()
+        self.webview.evaluate_javascript("if (window.clearSearchHighlights) { window.clearSearchHighlights(); }", -1)
         self.webview.grab_focus()
+        if self.btn_find.get_active():
+            self.btn_find.set_active(False)
 
     def on_search_changed(self, entry):
         text = entry.get_text()
         if not text:
-            self.find_controller.search_finish()
-            self.current_match_index = 0
-            self.total_matches = 0
-            self.update_search_label()
+            self.webview.evaluate_javascript("if (window.clearSearchHighlights) { window.clearSearchHighlights(); }", -1)
         else:
-            options = WebKit.FindOptions.CASE_INSENSITIVE | WebKit.FindOptions.WRAP_AROUND
-            self.find_controller.search(text, options, 1000)
+            js = f"window.highlightAll({json.dumps(text)});"
+            self.webview.evaluate_javascript(js, -1)
 
     def on_search_next(self, *args):
-        self.find_controller.search_next()
+        self.webview.evaluate_javascript("window.nextSearchMatch();", -1)
 
     def on_search_prev(self, *args):
-        self.find_controller.search_previous()
+        self.webview.evaluate_javascript("window.prevSearchMatch();", -1)
 
     def on_search_key_pressed(self, controller, keyval, keycode, state):
-        if keyval == Gdk.KEY_Return:
+        if keyval in (Gdk.KEY_Return, Gdk.KEY_KP_Enter):
             if state & Gdk.ModifierType.SHIFT_MASK:
                 self.on_search_prev()
                 return True
@@ -605,18 +621,14 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
                 return True
         return False
 
-    def on_counted_matches(self, controller, match_count):
-        self.total_matches = match_count
-        self.update_search_label()
-
-    def on_found_text(self, controller, match_index):
-        self.current_match_index = match_index + 1
-        self.update_search_label()
-
-    def on_failed_to_find_text(self, controller):
-        self.current_match_index = 0
-        self.total_matches = 0
-        self.update_search_label()
+    def on_search_results_updated(self, webview, result_json):
+        try:
+            data = json.loads(result_json)
+            self.current_match_index = data.get("current", 0)
+            self.total_matches = data.get("total", 0)
+            self.update_search_label()
+        except Exception as e:
+            print(f"Error parsing search results JSON: {e}")
 
     def update_search_label(self):
         if self.total_matches > 0:
@@ -628,7 +640,26 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
     def print_document(self):
         try:
             if self.history.current_filepath:
+                original_zoom = self.current_zoom
+                if original_zoom != 1.0:
+                    self.webview.set_zoom_level(1.0)
+
                 print_op = WebKit.PrintOperation.new(self.webview)
+                
+                # Restore original zoom level only after printing actually finishes
+                def on_print_finished(op):
+                    if original_zoom != 1.0:
+                        self.webview.set_zoom_level(original_zoom)
+                print_op.connect("finished", on_print_finished)
+
+                # Set 2.0 cm (20mm) margins on the PageSetup
+                page_setup = Gtk.PageSetup.new()
+                page_setup.set_top_margin(20.0, Gtk.Unit.MM)
+                page_setup.set_bottom_margin(20.0, Gtk.Unit.MM)
+                page_setup.set_left_margin(20.0, Gtk.Unit.MM)
+                page_setup.set_right_margin(20.0, Gtk.Unit.MM)
+                print_op.set_page_setup(page_setup)
+
                 settings = Gtk.PrintSettings.new()
                 filename = os.path.basename(self.history.current_filepath)
                 settings.set("job-name", f"Markdown Viewer - {filename}")

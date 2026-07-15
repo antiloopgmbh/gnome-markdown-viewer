@@ -19,6 +19,23 @@
     </screenshot>
   </screenshots>
   <url type="homepage">https://github.com/antiloopgmbh/gnome-markdown-viewer</url>
-  <developer_name>Antiloop GmbH</developer_name>
+  <developer id="com.antiloop">
+    <name>Antiloop GmbH</name>
+  </developer>
+  <releases>
+    <release version="1.0.0" date="2026-07-15">
+      <description>
+        <p>Initial stable release of Antiloop Markdown Viewer.</p>
+        <ul>
+          <li>Premium Markdown rendering using GitHub styling.</li>
+          <li>Dual sidebars for file browsing and document outline.</li>
+          <li>Responsive browser-like zooming (Ctrl+Scroll, Ctrl+/-, Ctrl+0).</li>
+          <li>Document search (Ctrl+F) with top-to-bottom match counting.</li>
+          <li>Page-fit PDF print layout (Ctrl+P) with 2cm margins.</li>
+          <li>Directory monitoring to automatically refresh file list.</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
   <content_rating type="oars-1.1" />
 </component>

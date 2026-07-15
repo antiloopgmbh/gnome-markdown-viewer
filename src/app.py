@@ -13,7 +13,7 @@ class MarkdownViewerApp(Adw.Application):
         Adw.Application.do_startup(self)
 
         action_quit = Gio.SimpleAction.new("quit", None)
-        action_quit.connect("activate", lambda a, p: self.quit())
+        action_quit.connect("activate", self.on_quit_activated)
         self.add_action(action_quit)
 
         self.set_accels_for_action("app.quit", ["<Control>q"])
@@ -47,3 +47,8 @@ class MarkdownViewerApp(Adw.Application):
         if n_files > 0:
             # CLI launch is considered an explicit open action
             win.open_file(files[0].get_path(), save_to_history=True, is_explicit=True)
+
+    def on_quit_activated(self, action, parameter):
+        for window in list(self.get_windows()):
+            window.close()
+        self.quit()

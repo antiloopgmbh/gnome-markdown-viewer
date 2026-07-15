@@ -85,6 +85,12 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.btn_left_sidebar.connect("toggled", self.toggle_left_sidebar)
         self.header_bar.pack_start(self.btn_left_sidebar)
 
+        # Separator on left side between sidebar toggle and file actions
+        sep_left = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        sep_left.set_margin_top(8)
+        sep_left.set_margin_bottom(8)
+        self.header_bar.pack_start(sep_left)
+
         # Open Button
         self.btn_open = Gtk.Button(icon_name="document-open-symbolic")
         self.btn_open.set_tooltip_text("Open markdown file")
@@ -123,42 +129,17 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         
         self.header_bar.pack_start(self.btn_recents)
 
-        # Navigation box (Back / Forward)
-        self.nav_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        self.nav_box.add_css_class("linked")
-        self.btn_back = Gtk.Button(icon_name="go-previous-symbolic")
-        self.btn_back.set_tooltip_text("Go back")
-        self.btn_back.set_sensitive(False)
-        self.btn_back.connect("clicked", lambda x: self.go_back())
-        self.btn_forward = Gtk.Button(icon_name="go-next-symbolic")
-        self.btn_forward.set_tooltip_text("Go forward")
-        self.btn_forward.set_sensitive(False)
-        self.btn_forward.connect("clicked", lambda x: self.go_forward())
-        self.nav_box.append(self.btn_back)
-        self.nav_box.append(self.btn_forward)
-        self.header_bar.pack_start(self.nav_box)
-
         # Toggle Right Sidebar Button (Outline)
         self.btn_right_sidebar = Gtk.ToggleButton(icon_name="view-list-symbolic")
         self.btn_right_sidebar.set_tooltip_text("Toggle outline sidebar")
         self.btn_right_sidebar.connect("toggled", self.toggle_right_sidebar)
         self.header_bar.pack_end(self.btn_right_sidebar)
 
-        # Reset Zoom Container
-        self.zoom_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.zoom_box.set_valign(Gtk.Align.CENTER)
-        self.zoom_box.set_visible(False)
-
-        self.lbl_zoom_factor = Gtk.Label(label="100%")
-        self.lbl_zoom_factor.set_opacity(0.6)
-        self.zoom_box.append(self.lbl_zoom_factor)
-
-        self.btn_zoom_reset = Gtk.Button(label="Reset")
-        self.btn_zoom_reset.set_tooltip_text("Reset zoom to 100% (Ctrl+0)")
-        self.btn_zoom_reset.connect("clicked", lambda x: self.zoom_reset())
-        self.zoom_box.append(self.btn_zoom_reset)
-
-        self.header_bar.pack_end(self.zoom_box)
+        # Separator on right side between sidebar toggle and document actions
+        sep_right = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        sep_right.set_margin_top(8)
+        sep_right.set_margin_bottom(8)
+        self.header_bar.pack_end(sep_right)
 
         # Print Button
         self.btn_print = Gtk.Button(icon_name="printer-symbolic")
@@ -173,6 +154,36 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.btn_find.connect("toggled", self.on_btn_find_toggled)
         self.btn_find.set_sensitive(False)
         self.header_bar.pack_end(self.btn_find)
+
+        # Reset Zoom Container
+        self.zoom_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.zoom_box.set_valign(Gtk.Align.CENTER)
+        self.zoom_box.set_visible(False)
+
+        self.lbl_zoom_factor = Gtk.Label(label="100%")
+        self.lbl_zoom_factor.set_opacity(0.6)
+        self.zoom_box.append(self.lbl_zoom_factor)
+
+        self.btn_zoom_reset = Gtk.Button(label="Reset")
+        self.btn_zoom_reset.set_tooltip_text("Reset zoom to 100% (Ctrl+0)")
+        self.btn_zoom_reset.connect("clicked", lambda x: self.zoom_reset())
+        self.zoom_box.append(self.btn_zoom_reset)
+        self.header_bar.pack_end(self.zoom_box)
+
+        # Navigation box (Back / Forward)
+        self.nav_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        self.nav_box.add_css_class("linked")
+        self.btn_back = Gtk.Button(icon_name="go-previous-symbolic")
+        self.btn_back.set_tooltip_text("Go back")
+        self.btn_back.set_sensitive(False)
+        self.btn_back.connect("clicked", lambda x: self.go_back())
+        self.btn_forward = Gtk.Button(icon_name="go-next-symbolic")
+        self.btn_forward.set_tooltip_text("Go forward")
+        self.btn_forward.set_sensitive(False)
+        self.btn_forward.connect("clicked", lambda x: self.go_forward())
+        self.nav_box.append(self.btn_back)
+        self.nav_box.append(self.btn_forward)
+        self.header_bar.pack_end(self.nav_box)
 
         # Outer Paned (Left Sidebar + Inner Area)
         self.left_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)

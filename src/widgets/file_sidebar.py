@@ -21,7 +21,7 @@ class FileSidebar(Gtk.Box):
         header_box.set_margin_bottom(8)
 
         # Up Button (Go one directory up)
-        self.btn_up = Gtk.Button(icon_name="go-up-symbolic")
+        self.btn_up = Gtk.Button(icon_name="go-jump-symbolic-rtl")
         self.btn_up.set_has_frame(False)
         self.btn_up.set_tooltip_text("Go up one directory")
         self.btn_up.connect("clicked", self.on_btn_up_clicked)

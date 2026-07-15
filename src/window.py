@@ -231,6 +231,11 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         scroll_controller.connect("scroll", self.on_webview_scroll)
         self.webview_container.add_controller(scroll_controller)
 
+        # Window-level key event controller to capture Escape key and close search
+        win_key_ctrl = Gtk.EventControllerKey.new()
+        win_key_ctrl.connect("key-pressed", self.on_window_key_pressed)
+        self.add_controller(win_key_ctrl)
+
         # Right Sidebar (Outline)
         self.outline_sidebar = OutlineSidebar()
         self.outline_sidebar.connect("heading-activated", self.on_heading_activated)
@@ -322,9 +327,11 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
 
         self.history.open_file(filepath, save_to_history=save_to_history)
         
-        # Save to recents and last opened filepath if explicitly opened
-        if is_explicit:
-            self.settings.last_opened_filepath = filepath
+        # Always update last opened filepath to restore on next startup
+        self.settings.last_opened_filepath = filepath
+        
+        # Add to recents if explicitly opened or navigated (not on back/forward history navigation)
+        if is_explicit or save_to_history:
             self.settings.add_recent_file(filepath)
 
         self.btn_back.set_sensitive(self.history.can_go_back())
@@ -629,6 +636,13 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
                 return True
             else:
                 self.on_search_next()
+                return True
+        return False
+
+    def on_window_key_pressed(self, controller, keyval, keycode, state):
+        if keyval == Gdk.KEY_Escape:
+            if self.search_bar.get_search_mode():
+                self.hide_search()
                 return True
         return False
 

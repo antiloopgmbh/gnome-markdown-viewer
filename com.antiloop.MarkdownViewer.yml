@@ -1,7 +1,7 @@
 id: com.antiloop.MarkdownViewer
-runtime: org.gnome.Platform
-runtime-version: '47'
-sdk: org.gnome.Sdk
+runtime: io.elementary.Platform
+runtime-version: '8'
+sdk: io.elementary.Sdk
 command: main.py
 
 finish-args:

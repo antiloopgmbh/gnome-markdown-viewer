@@ -80,7 +80,7 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.search_entry.add_controller(search_key_ctrl)
 
         # Toggle Left Sidebar Button (File browser)
-        self.btn_left_sidebar = Gtk.ToggleButton(icon_name="view-list-bullet-symbolic")
+        self.btn_left_sidebar = Gtk.ToggleButton(icon_name="sidebar-show-symbolic")
         self.btn_left_sidebar.set_tooltip_text("Toggle file sidebar")
         self.btn_left_sidebar.connect("toggled", self.toggle_left_sidebar)
         self.header_bar.pack_start(self.btn_left_sidebar)
@@ -130,7 +130,7 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.header_bar.pack_start(self.btn_recents)
 
         # Toggle Right Sidebar Button (Outline)
-        self.btn_right_sidebar = Gtk.ToggleButton(icon_name="view-list-symbolic")
+        self.btn_right_sidebar = Gtk.ToggleButton(icon_name="sidebar-show-right-symbolic")
         self.btn_right_sidebar.set_tooltip_text("Toggle outline sidebar")
         self.btn_right_sidebar.connect("toggled", self.toggle_right_sidebar)
         self.header_bar.pack_end(self.btn_right_sidebar)

@@ -1,3 +1,8 @@
+# elementary / AppCenter build.
+# Uses the elementary Platform so the app is natively themed (Pantheon/Granite)
+# on elementary OS. Do NOT ship this variant to Flathub: the bundled Granite
+# runtime forces the elementary look on every desktop, including GNOME.
+# The GNOME/Flathub variant lives in com.antiloop.MarkdownViewer.gnome.yml.
 id: com.antiloop.MarkdownViewer
 runtime: io.elementary.Platform
 runtime-version: '8'
@@ -8,36 +13,9 @@ finish-args:
   - --socket=wayland
   - --socket=fallback-x11
   - --socket=cups
-  - --device=dri
   - --share=ipc
-  - --filesystem=host:ro
+  - --device=dri
+  - --filesystem=home:ro
 
 modules:
-  - name: antiloop-md-viewer
-    buildsystem: simple
-    build-commands:
-      - install -d /app/bin
-      - install -m 755 src/main.py /app/bin/main.py
-      - install -m 644 src/app.py /app/bin/app.py
-      - install -m 644 src/window.py /app/bin/window.py
-      
-      - install -d /app/bin/core
-      - install -m 644 src/core/*.py /app/bin/core/
-      
-      - install -d /app/bin/widgets
-      - install -m 644 src/widgets/*.py /app/bin/widgets/
-
-      - install -d /app/bin/assets
-      - install -m 644 src/assets/* /app/bin/assets/
-
-      - install -d /app/share/applications
-      - install -m 644 com.antiloop.MarkdownViewer.desktop /app/share/applications/com.antiloop.MarkdownViewer.desktop
-
-      - install -d /app/share/metainfo
-      - install -m 644 com.antiloop.MarkdownViewer.metainfo.xml /app/share/metainfo/com.antiloop.MarkdownViewer.metainfo.xml
-
-      - install -d /app/share/icons/hicolor/scalable/apps
-      - install -m 644 com.antiloop.MarkdownViewer.svg /app/share/icons/hicolor/scalable/apps/com.antiloop.MarkdownViewer.svg
-    sources:
-      - type: dir
-        path: .
+  - antiloop-md-viewer.module.yml

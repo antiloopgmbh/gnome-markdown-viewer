@@ -1,6 +1,6 @@
 [Desktop Entry]
-Name=Antiloop Markdown Viewer
-Comment=Native Markdown viewer for GNOME
+Name=Antiloop Chiru
+Comment=Native Markdown viewer
 Exec=main.py %U
 Icon=com.antiloop.MarkdownViewer
 Terminal=false

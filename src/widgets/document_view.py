@@ -13,23 +13,14 @@ class DocumentView(WebKit.WebView):
     }
 
     def __init__(self):
-        super().__init__()
-        self.set_vexpand(True)
-        self.set_hexpand(True)
-
-        # Set transparent background to match system theme and prevent jarring black/white flashes during load
-        transparent = Gdk.RGBA()
-        transparent.red = 0.0
-        transparent.green = 0.0
-        transparent.blue = 0.0
-        transparent.alpha = 0.0
-        self.set_background_color(transparent)
-
-        # Configure WebKit Settings
-        settings = self.get_settings()
+        settings = WebKit.Settings()
         settings.set_allow_file_access_from_file_urls(True)
         settings.set_allow_universal_access_from_file_urls(True)
         settings.set_enable_developer_extras(True)
+
+        super().__init__(settings=settings)
+        self.set_vexpand(True)
+        self.set_hexpand(True)
 
         # Register custom URI scheme
         context = self.get_context()
@@ -44,6 +35,8 @@ class DocumentView(WebKit.WebView):
 
         # Navigation policy intercept
         self.connect("decide-policy", self.on_decide_policy)
+        self.connect("load-failed", lambda w, e, u, err: print(f"LOAD FAILED: {err.message} ({u})"))
+        self.connect("web-process-terminated", lambda w, r: print(f"WEB PROCESS TERMINATED: {r}"))
 
         # Mouse side button gestures
         self.mouse_gesture = Gtk.GestureClick.new()
@@ -53,17 +46,23 @@ class DocumentView(WebKit.WebView):
 
     def on_uri_scheme_request(self, request, user_data=None):
         uri = request.get_uri()
-        # app-local://path/to/file
-        path = urllib.parse.unquote(uri[12:])
-        
-        if not path.startswith('/'):
-            path = '/' + path
+        parsed = urllib.parse.urlparse(uri)
+        path = urllib.parse.unquote(parsed.path)
+        if parsed.netloc:
+            path = '/' + parsed.netloc + path
 
         if os.path.exists(path) and os.path.isfile(path):
             try:
-                mime_type, _ = mimetypes.guess_type(path)
-                if not mime_type:
-                    mime_type = "application/octet-stream"
+                if path.endswith('.js'):
+                    mime_type = 'application/javascript'
+                elif path.endswith('.css'):
+                    mime_type = 'text/css'
+                elif path.endswith('.html'):
+                    mime_type = 'text/html'
+                else:
+                    mime_type, _ = mimetypes.guess_type(path)
+                    if not mime_type:
+                        mime_type = "application/octet-stream"
 
                 with open(path, 'rb') as f:
                     data = f.read()

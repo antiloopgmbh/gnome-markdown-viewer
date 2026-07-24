@@ -1,5 +1,8 @@
 .flatpak-builder/
 build-dir/
+build-dir-gnome/
+repo/
+*.flatpak
 __pycache__/
 *.pyc
 .idea/

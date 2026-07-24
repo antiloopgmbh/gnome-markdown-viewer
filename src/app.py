@@ -1,8 +1,11 @@
 import os
-from gi.repository import Adw, Gio
+
+from gi.repository import Gio
+from core.platform import current_platform
+
 from window import MarkdownViewerWindow
 
-class MarkdownViewerApp(Adw.Application):
+class MarkdownViewerApp(current_platform.get_base_app_class()):
     def __init__(self):
         super().__init__(
             application_id="com.antiloop.MarkdownViewer",
@@ -10,7 +13,8 @@ class MarkdownViewerApp(Adw.Application):
         )
 
     def do_startup(self):
-        Adw.Application.do_startup(self)
+        current_platform.init_app(self)
+        current_platform.get_base_app_class().do_startup(self)
 
         action_quit = Gio.SimpleAction.new("quit", None)
         action_quit.connect("activate", self.on_quit_activated)

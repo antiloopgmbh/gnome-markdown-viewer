@@ -1,7 +1,8 @@
 import os
 import urllib.parse
 import json
-from gi.repository import Gtk, Adw, Gio, GLib, Pango, Gdk, WebKit
+from gi.repository import Gtk, Gio, GLib, Pango, Gdk, WebKit
+from core.platform import current_platform
 
 from core.history import NavigationHistory
 from core.renderer import render_markdown
@@ -10,7 +11,7 @@ from widgets.outline_sidebar import OutlineSidebar
 from widgets.document_view import DocumentView
 from core.settings import AppSettings
 
-class MarkdownViewerWindow(Adw.ApplicationWindow):
+class MarkdownViewerWindow(current_platform.get_base_window_class()):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.set_default_size(1000, 700)
@@ -26,11 +27,10 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
 
         # Setup main container
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.set_content(self.main_box)
 
         # Header Bar
-        self.header_bar = Adw.HeaderBar()
-        self.main_box.append(self.header_bar)
+        self.header_bar = current_platform.create_header_bar()
+        current_platform.setup_window_layout(self, self.main_box, self.header_bar)
 
         # Search Bar
         self.search_bar = Gtk.SearchBar()
@@ -207,6 +207,7 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.right_paned.set_position(520)
         self.right_paned.set_resize_start_child(True)
         self.right_paned.set_resize_end_child(False)
+        self.right_paned.set_shrink_start_child(False)
         self.right_paned.set_shrink_end_child(False)
         self.left_paned.set_end_child(self.right_paned)
 
@@ -216,6 +217,8 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.webview_container.set_hexpand(True)
 
         self.webview = DocumentView()
+        self.webview.set_vexpand(True)
+        self.webview.set_hexpand(True)
         self.webview.connect("outline-received", self.on_outline_received)
         self.webview.connect("search-results-updated", self.on_search_results_updated)
         self.webview.connect("file-navigation-requested", self.on_file_navigation_requested)
@@ -223,6 +226,8 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.webview.connect("mouse-forward-clicked", lambda w: self.go_forward())
         
         self.webview_container.append(self.webview)
+        self.webview.set_visible(True)
+        self.webview_container.set_visible(True)
         self.right_paned.set_start_child(self.webview_container)
 
         # Scroll controller on the container (running in CAPTURE phase to intercept before WebKit receives it)
@@ -242,8 +247,7 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.right_paned.set_end_child(self.outline_sidebar)
 
         # Dark mode listener
-        self.style_manager = Adw.StyleManager.get_default()
-        self.style_manager.connect("notify::dark", self.on_theme_changed)
+        current_platform.init_theme_monitoring(self, self.on_theme_changed)
 
         # Keyboard shortcuts actions
         action_open = Gio.SimpleAction.new("open", None)
@@ -276,8 +280,11 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
 
         self.show_placeholder()
 
+    def is_dark_mode(self):
+        return current_platform.is_dark_mode(self)
+
     def show_placeholder(self):
-        is_dark = self.style_manager.get_dark()
+        is_dark = self.is_dark_mode()
         bg_color = "#1e1e1e" if is_dark else "#fafafa"
         fg_color = "#aaaaaa" if is_dark else "#666666"
         placeholder_html = f"""<html><body style='font-family:sans-serif; text-align:center; padding-top:100px; color:{fg_color}; background-color:{bg_color};'>
@@ -304,7 +311,7 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.settings.last_opened_filepath = None
         self.show_placeholder()
 
-    def open_file(self, filepath, save_to_history=True, is_explicit=False):
+    def open_file(self, filepath, save_to_history=True, is_explicit=False, scroll_x=0, scroll_y=0):
         filepath = os.path.abspath(filepath)
         if filepath.startswith("/run/user/"):
             filepath = self.resolve_portal_path(filepath)
@@ -337,7 +344,7 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         self.btn_back.set_sensitive(self.history.can_go_back())
         self.btn_forward.set_sensitive(self.history.can_go_forward())
 
-        self.set_title(f"{os.path.basename(filepath)} - Antiloop Markdown Viewer")
+        self.set_title(f"{os.path.basename(filepath)} - Antiloop Chiru")
 
         self.btn_left_sidebar.set_sensitive(True)
         self.btn_right_sidebar.set_sensitive(True)
@@ -354,8 +361,6 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
             width = self.right_paned.get_width()
             if width > 300:
                 self.right_paned.set_position(width - 240)
-            else:
-                self.right_paned.set_position(520)
 
         self.file_sidebar.load_directory(filepath)
         self.outline_sidebar.set_filename(filepath)
@@ -367,14 +372,13 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
             md_content = f"# Error\nFailed to read file: {e}"
 
         # Render HTML using our rendering logic
-        is_dark = self.style_manager.get_dark()
+        is_dark = self.is_dark_mode()
         script_dir = os.path.dirname(os.path.abspath(__file__))
         assets_dir = os.path.join(script_dir, "assets")
         
-        html = render_markdown(md_content, is_dark, assets_dir)
-        
+        html = render_markdown(md_content, is_dark, assets_dir, scroll_x=scroll_x, scroll_y=scroll_y)
         parent_dir = os.path.dirname(filepath)
-        base_uri = "app-local://" + urllib.parse.quote(parent_dir, safe='/') + "/"
+        base_uri = "file://" + urllib.parse.quote(parent_dir, safe='/') + "/"
         self.webview.load_html(html, base_uri)
         self.webview.set_zoom_level(self.current_zoom)
 
@@ -484,7 +488,7 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
 
     def on_theme_changed(self, manager, gspec):
         if self.history.current_filepath:
-            self.open_file(self.history.current_filepath, save_to_history=False, is_explicit=False)
+            self.reload_current_file()
         else:
             self.show_placeholder()
 
@@ -493,8 +497,42 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
             GLib.idle_add(self.reload_current_file)
 
     def reload_current_file(self):
-        if self.history.current_filepath and os.path.exists(self.history.current_filepath):
-            self.open_file(self.history.current_filepath, save_to_history=False, is_explicit=False)
+        if not (self.history.current_filepath and os.path.exists(self.history.current_filepath)):
+            return False
+
+        if getattr(self, "_reloading_file", False):
+            return False
+        self._reloading_file = True
+
+        def on_scroll_retrieved(webview, result, user_data=None):
+            scroll_x, scroll_y = 0, 0
+            try:
+                val = webview.evaluate_javascript_finish(result)
+                if val:
+                    json_str = val.to_string()
+                    data = json.loads(json_str)
+                    scroll_x = data.get("x", 0)
+                    scroll_y = data.get("y", 0)
+            except Exception as e:
+                print("Error getting scroll position:", e)
+
+            try:
+                if self.history.current_filepath and os.path.exists(self.history.current_filepath):
+                    self.open_file(self.history.current_filepath, save_to_history=False, is_explicit=False, scroll_x=scroll_x, scroll_y=scroll_y)
+            finally:
+                self._reloading_file = False
+
+        try:
+            self.webview.evaluate_javascript(
+                "JSON.stringify({x: window.scrollX, y: window.scrollY})",
+                -1, None, None, None, on_scroll_retrieved, None
+            )
+        except Exception as e:
+            print("Error evaluating javascript for scroll position:", e)
+            self._reloading_file = False
+            if self.history.current_filepath and os.path.exists(self.history.current_filepath):
+                self.open_file(self.history.current_filepath, save_to_history=False, is_explicit=False)
+
         return False
 
     def on_webview_scroll(self, controller, dx, dy):
@@ -544,7 +582,7 @@ class MarkdownViewerWindow(Adw.ApplicationWindow):
         if self.file_monitor:
             self.file_monitor.cancel()
             self.file_monitor = None
-        Adw.ApplicationWindow.do_destroy(self)
+        current_platform.get_base_window_class().do_destroy(self)
 
     def resolve_portal_path(self, filepath):
         # Try to read FUSE extended attribute 'user.document-portal.host-path'

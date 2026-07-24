@@ -1,0 +1,23 @@
+# GNOME / Flathub build.
+# Uses the GNOME Platform so the app is natively themed (libadwaita/Adwaita)
+# on GNOME and most other desktops. This is the variant to submit to Flathub.
+# For a Flathub submission, this file is copied into the flathub packaging repo
+# as com.antiloop.MarkdownViewer.yaml (Flathub requires the manifest to be named
+# after the app id).
+# The elementary/AppCenter variant lives in com.antiloop.MarkdownViewer.yml.
+id: com.antiloop.MarkdownViewer
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+command: main.py
+
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=cups
+  - --share=ipc
+  - --device=dri
+  - --filesystem=home:ro
+
+modules:
+  - antiloop-md-viewer.module.yml

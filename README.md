@@ -1,10 +1,10 @@
-# Antiloop Markdown Viewer
+# Antiloop Chiru
 
-A premium, offline-first Markdown viewer built specifically for the GNOME desktop environment using **Python 3**, **GTK4**, **Libadwaita**, and **WebKit**. 
+A premium, offline-first Markdown viewer built using **Python 3**, **GTK4**, **Libadwaita**, and **WebKit**. 
 
-It provides a native GTK look and feel, fits perfectly into your GNOME environment, and supports advanced formatting features like tables, code syntax highlighting, and Mermaid diagrams—all fully offline.
+It provides a native Linux GTK look and feel, fits seamlessly into GTK desktop environments, and supports advanced formatting features like tables, code syntax highlighting, and Mermaid diagrams—all fully offline.
 
-![Antiloop Markdown Viewer Screenshot](screenshot.png)
+![Antiloop Chiru Screenshot](screenshot.png)
 
 ## Core Features
 
@@ -31,22 +31,69 @@ It provides a native GTK look and feel, fits perfectly into your GNOME environme
 
 ## Installation & Running (Flatpak)
 
-Building and running the application in a secure sandbox.
+The app ships as **two runtime variants** from a single source tree. Which one
+you build determines only the look — the application code adapts automatically
+(see [`src/core/platform.py`](src/core/platform.py)):
 
-1. **Install Flatpak-Builder and SDK**:
+| Variant | Manifest | Runtime | Use for |
+| :-- | :-- | :-- | :-- |
+| **GNOME** | `com.antiloop.MarkdownViewer.gnome.yml` | `org.gnome.Platform` | Flathub & general use (native libadwaita look on GNOME and most desktops) |
+| **elementary** | `com.antiloop.MarkdownViewer.yml` | `io.elementary.Platform` | AppCenter (native Pantheon look on elementary OS) |
+
+Both manifests share the same build steps via `antiloop-md-viewer.module.yml`,
+so they cannot drift apart.
+
+> ⚠️ Do **not** ship the elementary variant to Flathub: its bundled Granite
+> runtime forces the elementary theme onto every desktop, including GNOME.
+
+1. **Install Flatpak-Builder and the matching SDK/Platform**:
    ```bash
    sudo dnf install -y flatpak-builder
-   flatpak install flathub org.gnome.Sdk//47 org.gnome.Platform//47
+   # GNOME variant (recommended for local dev on non-elementary systems):
+   flatpak install flathub org.gnome.Sdk//50 org.gnome.Platform//50
+   # elementary variant (for AppCenter):
+   flatpak install org.freedesktop.Platform.GL.default//23.08   # required driver, see Troubleshooting
    ```
 2. **Build and Install Locally**:
    ```bash
+   # GNOME variant:
+   flatpak-builder --user --install --force-clean build-dir com.antiloop.MarkdownViewer.gnome.yml
+   # …or the elementary variant:
    flatpak-builder --user --install --force-clean build-dir com.antiloop.MarkdownViewer.yml
    ```
 3. **Launch the Application**:
-   You can launch the app from your GNOME Application menu or via terminal:
+   You can launch the app from your Application menu or via terminal:
    ```bash
    flatpak run com.antiloop.MarkdownViewer
    ```
+
+---
+
+## Troubleshooting
+
+### Document pane stays blank / white
+
+If the header bar and sidebars render correctly but the central document view stays completely blank, check the terminal output for:
+
+```
+Could not create default EGL display: EGL_BAD_PARAMETER. Aborting...
+```
+
+This means the `WebKitWebProcess` is crashing on startup because no Mesa graphics driver is available inside the Flatpak sandbox. It is **not** a bug in this app — WebKitGTK 6.0 requires a working EGL context even for pure software/CPU rendering, and the `io.elementary.Platform//8` runtime declares a hard dependency on a *specific* branch of the GL driver extension:
+
+```
+org.freedesktop.Platform.GL.default (versions: 23.08, 23.08-extra, or 1.4)
+```
+
+Flatpak does **not** automatically install this extension when you install the runtime or this app — it only ends up on your system as an incidental side effect of some other Flatpak app pulling in a matching GL branch. On a system where nothing else happened to install `23.08`, the sandbox has no driver at all and every WebKit-based Flatpak app using this runtime will hit the same crash.
+
+**Fix:**
+
+```bash
+flatpak install flathub org.freedesktop.Platform.GL.default//23.08
+```
+
+After installing, relaunch the app — the document pane should render immediately.
 
 ---
 

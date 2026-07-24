@@ -3,11 +3,11 @@
   <id>com.antiloop.MarkdownViewer</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
-  <name>Antiloop Markdown Viewer</name>
-  <summary>Native GNOME Markdown Viewer with sidebars and outline</summary>
+  <name>Antiloop Chiru</name>
+  <summary>Native Markdown Viewer with sidebars and outline</summary>
   <description>
     <p>
-      A premium, offline-first Markdown viewer built for GNOME using GTK4 and Libadwaita.
+      A premium, offline-first Markdown viewer built using GTK4 and Libadwaita.
       Features dual sidebars for file browsing and outline navigation, as well as Mermaid diagram rendering.
     </p>
   </description>
@@ -23,6 +23,18 @@
     <name>Antiloop GmbH</name>
   </developer>
   <releases>
+    <release version="1.2.0" date="2026-07-20">
+      <description>
+        <p>Release v1.2.0 with elementary OS compatibility and UI refinements.</p>
+        <ul>
+          <li>Renamed application to Antiloop Chiru for unique AppCenter identity.</li>
+          <li>Added native Granite integration for elementary OS styling.</li>
+          <li>Scoped Flatpak sandbox filesystem access to home directory (--filesystem=home:ro).</li>
+          <li>Restricted X11 fallback permissions for Wayland security.</li>
+          <li>Bundled custom symbolic icons for sidebar controls across all desktop environments.</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.0.0" date="2026-07-15">
       <description>
         <p>Initial stable release of Antiloop Markdown Viewer.</p>
